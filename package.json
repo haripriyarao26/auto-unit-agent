@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "start": "tsx src/agent.ts src/mathUtils.ts",
+    "start": "tsx src/agent.ts",
     "test": "jest",
     "dev": "tsx watch src/agent.ts"
   },

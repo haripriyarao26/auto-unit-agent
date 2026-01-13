@@ -133,6 +133,15 @@ async function generateTest(state: AgentState): Promise<Partial<AgentState>> {
   console.log(`\n[Generate Test] Iteration ${state.iterations + 1}`);
   const apiKey = getOpenAIKey();
 
+  // Extract filename for import
+  const sourceFileName = path.basename(state.filePath, path.extname(state.filePath));
+  
+  // Extract exported function names from source code
+  const exportMatches = state.sourceCode.match(/export\s+(?:function|const|async\s+function)\s+(\w+)/g);
+  const functionNames = exportMatches 
+    ? exportMatches.map(m => m.match(/(\w+)\s*[=(]/)?.[1]).filter(Boolean)
+    : [];
+
   const prompt = state.iterations === 0
     ? `Generate comprehensive Jest unit tests for this TypeScript function:
 
@@ -140,12 +149,14 @@ async function generateTest(state: AgentState): Promise<Partial<AgentState>> {
 ${state.sourceCode}
 \`\`\`
 
-Requirements:
+IMPORTANT REQUIREMENTS:
 1. Start with: /// <reference types="jest" />
-2. Use ESM import: import { calculateCompoundInterest } from './mathUtils.js';
-3. Test normal cases (positive values)
-4. Test edge cases: zero principal, negative principal, zero rate, negative rate, zero time
-5. Test error cases using expect(() => function()).toThrow('error message')
+2. Use ESM import: import { ${functionNames.join(', ')} } from './${sourceFileName}.js';
+   - The source file is named: ${sourceFileName}.ts
+   - You MUST use './${sourceFileName}.js' (with .js extension for ESM)
+3. Test normal cases
+4. Test edge cases (empty arrays, boundary values, etc.)
+5. Test error cases if applicable using expect(() => function()).toThrow('error message')
 6. Use describe() and it() blocks
 7. Output ONLY the test code in a typescript code block, no explanations`
     : `Fix the test code. Previous errors:
@@ -160,6 +171,9 @@ Original function:
 \`\`\`typescript
 ${state.sourceCode}
 \`\`\`
+
+IMPORTANT: The source file is named ${sourceFileName}.ts
+You MUST use: import { ${functionNames.join(', ')} } from './${sourceFileName}.js';
 
 Generate the corrected test code in a typescript code block.`;
 
@@ -247,12 +261,16 @@ function executeTest(state: AgentState): Partial<AgentState> {
       };
     }
     
+    // Extract function name and file name from source file path
+    const sourceFileName = path.basename(state.filePath, path.extname(state.filePath));
+    const sourceFileExt = path.extname(state.filePath);
+    
     // Create the source file in temp directory
-    const sourceFilePath = path.join(tmpDir, "mathUtils.ts");
+    const sourceFilePath = path.join(tmpDir, `${sourceFileName}${sourceFileExt}`);
     fs.writeFileSync(sourceFilePath, state.sourceCode, "utf-8");
     
-    // Create the test file
-    const testFilePath = path.join(tmpDir, "mathUtils.test.ts");
+    // Create the test file with matching name
+    const testFilePath = path.join(tmpDir, `${sourceFileName}.test${sourceFileExt}`);
     
     // Ensure test code has Jest types reference
     let testCodeWithTypes = state.testCode;
@@ -300,17 +318,13 @@ function executeTest(state: AgentState): Partial<AgentState> {
   transform: {
     '^.+\\.ts$': ['ts-jest', {
       useESM: true,
+      tsconfig: {
+        types: ['jest', 'node'],
+      },
     }],
   },
   moduleDirectories: ['node_modules', '${path.join(projectRoot, "node_modules").replace(/\\/g, "/")}'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
-  globals: {
-    'ts-jest': {
-      tsconfig: {
-        types: ['jest', 'node'],
-      },
-    },
-  },
 };`;
     fs.writeFileSync(path.join(tmpDir, "jest.config.js"), jestConfig, "utf-8");
     
@@ -547,7 +561,14 @@ async function runAgent(sourceFilePath: string): Promise<void> {
 }
 
 // Main execution
-const sourceFile = process.argv[2] || "./src/mathUtils.ts";
+// Usage: npm start src/leetcode_binary.ts
+// Or: npm start src/leetcode_dp.ts
+const sourceFile = process.argv[2];
+if (!sourceFile) {
+  console.error("❌ Error: Please provide a source file path");
+  console.error("Usage: npm start src/yourFile.ts");
+  process.exit(1);
+}
 runAgent(sourceFile).catch((error) => {
   console.error("Fatal error:", error);
   process.exit(1);
