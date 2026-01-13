@@ -1,0 +1,37 @@
+{
+  "name": "auto-unit-agent",
+  "version": "1.0.0",
+  "description": "Automated Unit-Testing Agent using LangGraph and Hugging Face",
+  "main": "dist/agent.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "tsx src/agent.ts src/mathUtils.ts",
+    "test": "jest",
+    "dev": "tsx watch src/agent.ts"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "unit-testing",
+    "langgraph",
+    "huggingface"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@huggingface/inference": "^2.6.4",
+    "@langchain/langgraph": "^0.2.16",
+    "@langchain/core": "^0.3.15",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.14.12",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.5",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4"
+  }
+}
+
